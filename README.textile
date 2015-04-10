@@ -8,7 +8,11 @@ Before making requests to any of the methods of the Reddit SDK, you first need t
 <notextile>
 <pre>
 require_once("reddit.php");
-$reddit = new reddit();
+$redditConfig = array(
+    'CLIENT_ID' => 'xyz',
+    'CLIENT_SECRET' => 'xyz
+);
+$reddit = new reddit($redditConfig);
 </pre>
 </notextile>
 
