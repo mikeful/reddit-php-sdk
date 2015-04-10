@@ -1,6 +1,4 @@
 <?php
-require_once("config.php");
-
 /**
 * Reddit PHP SDK
 *
@@ -13,15 +11,45 @@ class reddit{
     private $access_token;
     private $token_type;
     private $auth_mode = 'basic';
+
+    // Default configuration array
+    // Override by passing array with matching keys in constructor.
+    private $redditConfig = array(
+        //standard, oauth token fetch, and api request endpoints
+        'ENDPOINT_STANDARD' => 'http://www.reddit.com',
+        'ENDPOINT_OAUTH' => 'https://oauth.reddit.com',
+        'ENDPOINT_OAUTH_AUTHORIZE' => 'https://ssl.reddit.com/api/v1/authorize',
+        'ENDPOINT_OAUTH_TOKEN' => 'https://ssl.reddit.com/api/v1/access_token',
+        'ENDPOINT_OAUTH_REDIRECT' => 'http://localhost/reddit/test.php',
+        
+        //access token configuration from https://ssl.reddit.com/prefs/apps
+        'CLIENT_ID' => 'YOUR CLIENT ID',
+        'CLIENT_SECRET' => 'YOUR CLIENT SECRET',
+        
+        //access token request scopes
+        //full list at http://www.reddit.com/dev/api/oauth
+        'SCOPES' => 'save,modposts,identity,edit,flair,history,modconfig,modflair,modlog,modposts,modwiki,mysubreddits,privatemessages,read,report,submit,subscribe,vote,wikiedit,wikiread',
+    );
     
     /**
     * Class Constructor
     *
     * Construct the class and simultaneously log a user in.
     * @link https://github.com/reddit/reddit/wiki/API%3A-login
+    * @param array $redditConfig Configuration array
     * @param string $mode The auth mode to use, either oauth (default) or basic
     */
-    public function __construct($mode = 'oauth'){
+    public function __construct($redditConfig = array(), $mode = 'oauth'){
+        // Check configuration array and merge with defaults
+        if (is_array($redditConfig)) {
+            $this->redditConfig = array_merge(
+                $this->redditConfig,
+                $redditConfig
+            );
+        } else {
+            throw new Exception("Configuration array is invalid", 1);
+        }
+
         if ($mode == 'oauth'){
             self::init_oauth();
         } else {
@@ -30,13 +58,13 @@ class reddit{
     }
     
     public function init_basic(){
-        $this->apiHost = redditConfig::$ENDPOINT_STANDARD;
+        $this->apiHost = $this->redditConfig['ENDPOINT_STANDARD'];
     }
     
     public function init_oauth(){
         if ('cli' == php_sapi_name()) {
             //get JSON access token object
-            $token = self::runCurl(redditConfig::$ENDPOINT_OAUTH_TOKEN, 'grant_type=client_credentials', null, true);
+            $token = self::runCurl($this->redditConfig['ENDPOINT_OAUTH_TOKEN'], 'grant_type=client_credentials', null, true);
 
             //store token and type
             if (isset($token->access_token)){
@@ -56,11 +84,11 @@ class reddit{
                     //construct POST object for access token fetch request
                     $postvals = sprintf("code=%s&redirect_uri=%s&grant_type=authorization_code&client_id=%s",
                                         $code,
-                                        redditConfig::$ENDPOINT_OAUTH_REDIRECT,
-                                        redditConfig::$CLIENT_ID);
+                                        $this->redditConfig['ENDPOINT_OAUTH_REDIRECT'],
+                                        $this->redditConfig['CLIENT_ID']);
                     
                     //get JSON access token object (with refresh_token parameter)
-                    $token = self::runCurl(redditConfig::$ENDPOINT_OAUTH_TOKEN, $postvals, null, true);
+                    $token = self::runCurl($this->redditConfig['ENDPOINT_OAUTH_TOKEN'], $postvals, null, true);
 
                     //store token and type
                     if (isset($token->access_token)){
@@ -74,10 +102,10 @@ class reddit{
                 } else {
                     $state = rand();
                     $urlAuth = sprintf("%s?response_type=code&client_id=%s&redirect_uri=%s&scope=%s&state=%s",
-                                       redditConfig::$ENDPOINT_OAUTH_AUTHORIZE,
-                                       redditConfig::$CLIENT_ID,
-                                       redditConfig::$ENDPOINT_OAUTH_REDIRECT,
-                                       redditConfig::$SCOPES,
+                                       $this->redditConfig['ENDPOINT_OAUTH_AUTHORIZE'],
+                                       $this->redditConfig['CLIENT_ID'],
+                                       $this->redditConfig['ENDPOINT_OAUTH_REDIRECT'],
+                                       $this->redditConfig['SCOPES'],
                                        $state);
                         
                     //forward user to Reddit auth page
@@ -87,7 +115,7 @@ class reddit{
         }
         
         //set API endpoint
-        $this->apiHost = redditConfig::$ENDPOINT_OAUTH;
+        $this->apiHost = $this->redditConfig['ENDPOINT_OAUTH'];
         
         //set auth mode for requests
         $this->auth_mode = 'oauth';
@@ -751,7 +779,7 @@ class reddit{
         
         if ($auth){
             $options[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
-            $options[CURLOPT_USERPWD] = redditConfig::$CLIENT_ID . ":" . redditConfig::$CLIENT_SECRET;
+            $options[CURLOPT_USERPWD] = $this->redditConfig['CLIENT_ID'] . ":" . $this->redditConfig['CLIENT_SECRET'];
             $options[CURLOPT_SSLVERSION] = 4;
             $options[CURLOPT_SSL_VERIFYPEER] = false;
             $options[CURLOPT_SSL_VERIFYHOST] = 2;
